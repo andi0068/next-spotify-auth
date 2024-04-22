@@ -1,4 +1,5 @@
-import { cookies } from 'next/headers';
+import type { NextRequest, NextResponse } from 'next/server';
+import * as headers from 'next/headers';
 
 type SessionData = {
   access_token: string;
@@ -13,21 +14,27 @@ export function env() {
   };
 }
 
+export function cookies(obj?: NextRequest | NextResponse) {
+  return obj?.cookies || headers.cookies();
+}
+
 export const Session = {
   key: 'session',
-  set(data: SessionData | null) {
-    if (data === null) return cookies().set(Session.key, '', { expires: new Date(0) });
-    return cookies().set(
-      Session.key,
-      JSON.stringify({
-        access_token: data.access_token,
-        refresh_token: data.refresh_token,
-      } satisfies SessionData),
-      { httpOnly: true },
-    );
+  set(data: SessionData | null, res?: NextResponse) {
+    if (data === null) return cookies(res).set(Session.key, '', { expires: new Date(0) });
+    return cookies(res).set(Session.key, Session._stringify(data), { httpOnly: true });
   },
-  get(): SessionData | null {
-    const cookie = cookies().get(Session.key);
-    return cookie?.value ? JSON.parse(cookie.value) : null;
+  get(req?: NextRequest) {
+    const value = cookies(req).get(Session.key)?.value;
+    return Session._parse(value);
+  },
+  _stringify(data: SessionData) {
+    return JSON.stringify({
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+    } satisfies SessionData);
+  },
+  _parse(value?: string): SessionData | null {
+    return value ? JSON.parse(value) : null;
   },
 };
